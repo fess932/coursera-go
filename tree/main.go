@@ -32,23 +32,42 @@ func dirTree(out io.Writer, path string, printFiles bool) error {
 		return err
 	}
 
-	write(out, names, path, "")
+	if !printFiles {
+		names = onlyDirs(names)
+	}
+
+	writeFiles(out, printFiles, names, path, "")
 
 	return nil
 }
 
-func write(out io.Writer, names []os.FileInfo, p, space string) {
+func onlyDirs(names []os.FileInfo) (nnames []os.FileInfo) {
+	for _, v := range names {
+		if v.IsDir() {
+			nnames = append(nnames, v)
+		}
+	}
+	return
+}
+
+func writeFiles(out io.Writer, printFiles bool, names []os.FileInfo, p, space string) {
 	for i, v := range names {
-		if i == len(names)-1 {
+		switch {
+		case i == len(names)-1:
 			fmt.Fprintf(out, space+"└───")
-		} else {
+		default:
 			fmt.Fprintf(out, space+"├───")
 		}
 
 		fmt.Fprintf(out, "%s", v.Name())
 		if !v.IsDir() {
-			fmt.Fprintf(out, " (%vb)", v.Size())
+			if v.Size() == 0 {
+				fmt.Fprintf(out, " (empty)")
+			} else {
+				fmt.Fprintf(out, " (%db)", v.Size())
+			}
 		}
+
 		fmt.Fprintf(out, "\n")
 
 		if v.IsDir() {
@@ -62,7 +81,15 @@ func write(out io.Writer, names []os.FileInfo, p, space string) {
 				log.Println(err)
 			}
 
-			write(out, n, p, space+"\t")
+			if !printFiles {
+				n = onlyDirs(n)
+			}
+
+			if i == len(names)-1 {
+				writeFiles(out, printFiles, n, p, space+"\t")
+			} else {
+				writeFiles(out, printFiles, n, p, space+"│\t")
+			}
 		}
 	}
 }
